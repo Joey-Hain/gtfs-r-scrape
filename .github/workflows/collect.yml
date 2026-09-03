@@ -32,7 +32,6 @@ jobs:
       - name: Run collector
         env:
           TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
-          TFNSW_GTFS_RT_URL: ${{ secrets.TFNSW_GTFS_RT_URL }}
           # TFNSW_VEHICLE_POS_URL is optional — collector.py defaults to the buses endpoint
         run: python collector.py
 
