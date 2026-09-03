@@ -37,7 +37,7 @@ SYDNEY_CBD = (-33.8688, 151.2093)
 RADIUS_KM = float(os.getenv("COLLECTOR_RADIUS_KM", "10"))
 
 API_KEY = os.environ["TFNSW_API_KEY"]
-TRIP_UPDATE_URL = os.environ["TFNSW_GTFS_RT_URL"]
+TRIP_UPDATE_URL = "https://api.transport.nsw.gov.au/v1/gtfs/realtime/buses"
 VEHICLE_POS_URL = os.getenv(
     "TFNSW_VEHICLE_POS_URL",
     "https://api.transport.nsw.gov.au/v1/gtfs/vehiclepos/buses"
