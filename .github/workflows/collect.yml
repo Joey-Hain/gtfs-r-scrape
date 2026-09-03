@@ -34,7 +34,12 @@ jobs:
           TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
           # TFNSW_VEHICLE_POS_URL is optional — collector.py defaults to the buses endpoint
         run: python collector.py
-
+      - name: Debug API key presence
+        run: |
+          echo "Key length: ${#TFNSW_API_KEY}"
+          echo "First 4 chars: ${TFNSW_API_KEY:0:4}"
+        env:
+          TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
       - name: Commit and push data
         run: |
           git config user.name  "github-actions[bot]"
