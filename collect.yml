@@ -1,0 +1,47 @@
+name: Collect bus positions
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 minutes — GitHub's finest granularity
+  workflow_dispatch:          # also allow manual trigger from the Actions tab
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4        # kill the job if it hangs, before the next run starts
+
+    permissions:
+      contents: write         # needed to push the CSV commit back to the repo
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          # Fetch the latest commit so we're always appending to the current
+          # CSV, not an older copy from when the runner was cached
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install requests gtfs-realtime-bindings tzdata
+
+      - name: Run collector
+        env:
+          TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
+          TFNSW_GTFS_RT_URL: ${{ secrets.TFNSW_GTFS_RT_URL }}
+          # TFNSW_VEHICLE_POS_URL is optional — collector.py defaults to the buses endpoint
+        run: python collector.py
+
+      - name: Commit and push data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          # Only commit if something actually changed (skips empty runs gracefully)
+          git diff --cached --quiet || git commit -m "data: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          git push
