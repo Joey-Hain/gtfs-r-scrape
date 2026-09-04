@@ -1,9 +1,10 @@
 name: Collect bus positions
 
 on:
+  push:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 minutes — GitHub's finest granularity
-  workflow_dispatch:          # also allow manual trigger from the Actions tab
+    - cron: '*/5 * * * *'
+  workflow_dispatch:    # also allow manual trigger from the Actions tab
 
 jobs:
   collect:
