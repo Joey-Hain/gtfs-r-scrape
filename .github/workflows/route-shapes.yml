@@ -1,0 +1,56 @@
+name: Build route shapes
+
+# Rebuilds shapes/route_shapes.json (the civl3704 heatmap's route mask)
+# from the TfNSW bus GTFS bundle. Weekly is plenty — route geometry only
+# changes with timetable changes — plus on demand from the Actions tab and
+# whenever the builder itself changes.
+on:
+  schedule:
+    - cron: '17 18 * * 0'   # Mondays ~05:17 Sydney (UTC cron)
+  workflow_dispatch:
+  push:
+    paths:
+      - build_route_shapes.py
+      - .github/workflows/route-shapes.yml
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    concurrency:
+      group: route-shapes
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install requests tzdata
+
+      - name: Build shapes
+        env:
+          TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
+        run: python build_route_shapes.py
+
+      - name: Commit and push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add shapes/
+          git diff --cached --quiet && { echo "No change"; exit 0; }
+          git commit -m "shapes: rebuild route network $(date -u +'%Y-%m-%d')"
+          # The collector commits every 5 minutes, so main has very likely
+          # moved since checkout — rebase onto it (no overlap: different
+          # folders) and retry a few times in case it moves again.
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i * 5))
+          done
+          exit 1

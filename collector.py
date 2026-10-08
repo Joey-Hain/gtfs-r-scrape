@@ -44,8 +44,10 @@ VEHICLE_POS_URL = os.getenv(
 )
 
 ANOMALY_ABS_SEC = 3600
-ON_TIME_EARLY_SEC = -60
-ON_TIME_LATE_SEC = 300
+# TfNSW bus on-time running KPI: 59s early to 5:59 late, inclusive.
+# Matches ON_TIME_EARLY_SEC / ON_TIME_LATE_SEC in the civl3704 dashboard.
+ON_TIME_EARLY_SEC = -59
+ON_TIME_LATE_SEC = 359
 
 DATA_DIR = Path("data")
 DATA_DIR.mkdir(exist_ok=True)
