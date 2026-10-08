@@ -44,6 +44,7 @@ VEHICLE_POS_URL = os.getenv(
 )
 
 ANOMALY_ABS_SEC = 3600
+RETENTION_DAYS = int(os.getenv("COLLECTOR_RETENTION_DAYS", "60"))
 # TfNSW bus on-time running KPI: 59s early to 5:59 late, inclusive.
 # Matches ON_TIME_EARLY_SEC / ON_TIME_LATE_SEC in the civl3704 dashboard.
 ON_TIME_EARLY_SEC = -59
@@ -175,8 +176,12 @@ def main():
 
     print(f"  Wrote {rows_written} rows to {out_path}", flush=True)
 
-    # Purge daily files older than 7 days to keep repo size bounded
-    cutoff = now.date() - timedelta(days=7)
+    # Purge daily files older than RETENTION_DAYS to keep repo size bounded.
+    # Was 7; raised so the heatmap can offer a 30-day window — at the
+    # cadence GitHub's scheduler actually delivers (3-6 snapshots/day) a
+    # week averages only ~1.3 readings per 10 m grid cell. ~200 kB/day, so
+    # 60 days is still only ~12 MB.
+    cutoff = now.date() - timedelta(days=RETENTION_DAYS)
     for old_file in DATA_DIR.glob("*.csv"):
         try:
             file_date = datetime.strptime(old_file.stem, "%Y-%m-%d").date()
