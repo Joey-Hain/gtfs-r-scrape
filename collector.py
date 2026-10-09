@@ -5,9 +5,12 @@ Fetches the GTFS-Realtime vehicle positions feed and the trip-update
 (delay) feed, joins them on trip_id, and appends one row per vehicle
 to a daily CSV file at data/YYYY-MM-DD.csv in the current repo.
 
-Designed to be run via GitHub Actions on a schedule (every 5 minutes).
-The Actions workflow handles git commit/push — this script only writes
-the CSV row(s) and exits.
+Run once (python collector.py) it takes a single snapshot and exits.
+GitHub Actions runs it with --minutes 55: it stays running and takes a
+snapshot at :05, :20, :35 and :50 past each hour, so a workflow that starts
+hourly collects all day, instead of relying on GitHub's 5-minute schedule
+(which in practice only fired 3-6 times a day). The workflow handles the
+git commit/push once the loop ends.
 
 Required environment variables (set as GitHub Actions secrets):
     TFNSW_API_KEY            — TfNSW Open Data Hub API key
@@ -24,6 +27,7 @@ to override (or 0 to disable).
 import csv
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
@@ -131,21 +135,16 @@ def extract_vehicles(feed: gtfs_realtime_pb2.FeedMessage) -> list[dict]:
     return vehicles
 
 
-def main():
+def snapshot():
+    """Fetch both feeds and append one row per vehicle. Raises on failure."""
     now = datetime.now(tz=SYDNEY_TZ)
     timestamp = now.isoformat(timespec="seconds")
     date_str = now.strftime("%Y-%m-%d")
     out_path = DATA_DIR / f"{date_str}.csv"
 
     print(f"[{timestamp}] Fetching feeds...", flush=True)
-    try:
-        trip_feed = fetch_feed(TRIP_UPDATE_URL)
-        vehicle_feed = fetch_feed(VEHICLE_POS_URL)
-    except Exception as e:
-        print(f"Feed fetch failed: {e}", file=sys.stderr)
-        if __name__ != "__main__":
-            raise  # let a caller (local_collector.py) log it and carry on
-        sys.exit(1)
+    trip_feed = fetch_feed(TRIP_UPDATE_URL)
+    vehicle_feed = fetch_feed(VEHICLE_POS_URL)
 
     delays = extract_delays(trip_feed)
     vehicles = extract_vehicles(vehicle_feed)
@@ -197,5 +196,61 @@ def main():
             pass  # not a date-named file, leave it alone
 
 
+def main():
+    """Single snapshot. local_collector.py calls this in its own loop."""
+    try:
+        snapshot()
+    except Exception as e:
+        print(f"Feed fetch failed: {e}", file=sys.stderr)
+        if __name__ != "__main__":
+            raise  # let a caller (local_collector.py) log it and carry on
+        sys.exit(1)
+
+
+def next_slot(now: datetime, interval_min: int, offset_min: int) -> datetime:
+    """Next time at offset_min past a multiple of interval_min (Sydney time)."""
+    base = now.replace(second=0, microsecond=0)
+    mins = base.hour * 60 + base.minute
+    nxt = ((mins - offset_min) // interval_min + 1) * interval_min + offset_min
+    return base.replace(hour=0, minute=0) + timedelta(minutes=nxt)
+
+
+def run_for(minutes: float, interval_min: int, offset_min: int):
+    """Keep taking snapshots on fixed slots until `minutes` have passed.
+
+    A failed snapshot is logged and the loop carries on; the run only fails
+    if every snapshot failed, so a real problem (bad key) still shows red.
+    """
+    deadline = datetime.now(tz=SYDNEY_TZ) + timedelta(minutes=minutes)
+    ok = failed = 0
+    while True:
+        slot = next_slot(datetime.now(tz=SYDNEY_TZ), interval_min, offset_min)
+        if slot > deadline:
+            break
+        time.sleep(max(0.0, (slot - datetime.now(tz=SYDNEY_TZ)).total_seconds()))
+        try:
+            snapshot()
+            ok += 1
+        except Exception as e:
+            failed += 1
+            print(f"Snapshot failed: {e}", file=sys.stderr, flush=True)
+    print(f"Done: {ok} snapshots, {failed} failed", flush=True)
+    if failed and not ok:
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    main()
+    import argparse
+    p = argparse.ArgumentParser(description="TfNSW bus position + delay collector")
+    p.add_argument("--minutes", type=float, default=0,
+                   help="keep running this long, snapshotting on fixed slots (0 = one snapshot)")
+    p.add_argument("--interval", type=int, default=int(os.getenv("COLLECTOR_INTERVAL_MIN", "15")),
+                   help="minutes between snapshots in --minutes mode")
+    p.add_argument("--offset", type=int, default=int(os.getenv("COLLECTOR_OFFSET_MIN", "5")),
+                   help="minutes past each interval to snapshot; 5 interleaves with the "
+                        "home collector's quarter-hour snapshots")
+    args = p.parse_args()
+    if args.minutes > 0:
+        run_for(args.minutes, args.interval, args.offset)
+    else:
+        main()

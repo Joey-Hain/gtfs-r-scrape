@@ -1,15 +1,27 @@
 name: Collect bus positions
 
+# GitHub only runs short */5 schedules when it has spare capacity (3-6 times a
+# day in practice). Instead each run starts hourly and stays up for 55 minutes,
+# taking a snapshot at :05, :20, :35 and :50 (see collector.py --minutes), then
+# commits once. A late or skipped start only loses part of an hour.
 on:
-  push:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '2 * * * *'
   workflow_dispatch:    # also allow manual trigger from the Actions tab
+    inputs:
+      minutes:
+        description: 'How long to keep collecting (0 = single snapshot)'
+        default: '55'
+
+# Never run two collectors at once; a late start queues behind the current one
+concurrency:
+  group: collect
+  cancel-in-progress: false
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 4        # kill the job if it hangs, before the next run starts
+    timeout-minutes: 70
 
     permissions:
       contents: write         # needed to push the CSV commit back to the repo
@@ -18,8 +30,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          # Fetch the latest commit so we're always appending to the current
-          # CSV, not an older copy from when the runner was cached
           fetch-depth: 1
 
       - name: Set up Python
@@ -29,23 +39,27 @@ jobs:
 
       - name: Install dependencies
         run: pip install requests gtfs-realtime-bindings tzdata
-      - name: Debug API key presence
-        run: |
-          echo "Key length: ${#TFNSW_API_KEY}"
-          echo "First 4 chars: ${TFNSW_API_KEY:0:4}"
-        env:
-          TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
+
       - name: Run collector
         env:
           TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
-          # TFNSW_VEHICLE_POS_URL is optional — collector.py defaults to the buses endpoint
-        run: python collector.py
-     
+          MINUTES: ${{ github.event.inputs.minutes || '55' }}
+          # TFNSW_VEHICLE_POS_URL is optional; collector.py defaults to the buses endpoint
+          # COLLECTOR_INTERVAL_MIN / COLLECTOR_OFFSET_MIN change the snapshot slots
+        run: python collector.py --minutes "$MINUTES"
+
       - name: Commit and push data
+        if: success() || failure()
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           # Only commit if something actually changed (skips empty runs gracefully)
-          git diff --cached --quiet || git commit -m "data: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          git push
+          git diff --cached --quiet && exit 0
+          git commit -m "data: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          # data-local/ pushes from the home collector may have landed meanwhile
+          for i in 1 2 3; do
+            git pull --rebase -q && git push -q && exit 0
+            sleep 5
+          done
+          exit 1
