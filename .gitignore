@@ -1,0 +1,5 @@
+# API key for local_collector.py — never commit this
+.env
+local_collector.log
+__pycache__/
+*.pyc

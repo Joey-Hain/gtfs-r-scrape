@@ -50,7 +50,10 @@ RETENTION_DAYS = int(os.getenv("COLLECTOR_RETENTION_DAYS", "60"))
 ON_TIME_EARLY_SEC = -59
 ON_TIME_LATE_SEC = 359
 
-DATA_DIR = Path("data")
+# data/ = the GitHub Actions collector. local_collector.py sets this to
+# data-local/ so a home machine and the Action never append to the same
+# file (which would make every manual push a merge conflict).
+DATA_DIR = Path(os.getenv("COLLECTOR_DATA_DIR", "data"))
 DATA_DIR.mkdir(exist_ok=True)
 
 FIELDNAMES = [
@@ -140,6 +143,8 @@ def main():
         vehicle_feed = fetch_feed(VEHICLE_POS_URL)
     except Exception as e:
         print(f"Feed fetch failed: {e}", file=sys.stderr)
+        if __name__ != "__main__":
+            raise  # let a caller (local_collector.py) log it and carry on
         sys.exit(1)
 
     delays = extract_delays(trip_feed)
