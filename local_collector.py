@@ -17,6 +17,11 @@ Usage (from this folder):
     3. python local_collector.py              # every 15 min until Ctrl+C
        python local_collector.py --interval 5 # every 5 min
        python local_collector.py --once       # single snapshot, then exit
+       python local_collector.py --no-ping    # don't keep the dashboard awake
+
+While it runs it also pings the dashboard every 10 minutes (--ping-url),
+because Render's free tier puts the site to sleep after 15 minutes without
+a request and the first visit afterwards takes ~30-60 s to wake it.
 
 Then push whenever you like:
     git add data-local && git commit -m "local data" && git pull --rebase && git push
@@ -84,8 +89,26 @@ def snapshot():
         return False
 
 
-def run(interval_min):
+PING_URL_DEFAULT = "https://civl3704.joeyhain.org/ping"
+PING_EVERY_SEC = 600  # Render free tier sleeps after 15 min idle
+
+
+def ping(url):
+    """Keep-alive request to the dashboard. Failures are logged, never fatal."""
+    try:
+        import requests
+        r = requests.get(url, timeout=20)
+        if r.status_code != 200:
+            log(f"Ping {url} -> HTTP {r.status_code}")
+    except Exception as e:  # network blip, site restarting, etc.
+        log(f"Ping {url} failed: {e!r}")
+
+
+def run(interval_min, ping_url=None):
     log(f"Collecting every {interval_min} min into {collector.DATA_DIR.resolve()} (Ctrl+C to stop)")
+    if ping_url:
+        log(f"Keeping {ping_url} awake (ping every {PING_EVERY_SEC // 60} min)")
+    run.last_ping = float("-inf")
     ok = fail = 0
     while True:
         if snapshot():
@@ -97,6 +120,9 @@ def run(interval_min):
         # Sleep in short steps so a machine waking from sleep catches up at
         # the next slot instead of oversleeping by the length of the nap.
         while datetime.now(tz=collector.SYDNEY_TZ) < nxt:
+            if ping_url and time.monotonic() - run.last_ping >= PING_EVERY_SEC:
+                ping(ping_url)
+                run.last_ping = time.monotonic()
             time.sleep(min(30, max(1, (nxt - datetime.now(tz=collector.SYDNEY_TZ)).total_seconds())))
 
 
@@ -104,6 +130,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Collect TfNSW bus positions + delays to data-local/ on a timer.")
     ap.add_argument("--interval", type=int, default=15, help="minutes between snapshots (default 15)")
     ap.add_argument("--once", action="store_true", help="take one snapshot and exit")
+    ap.add_argument("--ping-url", default=PING_URL_DEFAULT,
+                    help=f"dashboard URL to ping every {PING_EVERY_SEC // 60} min so it never sleeps (default {PING_URL_DEFAULT})")
+    ap.add_argument("--no-ping", action="store_true", help="don't ping the dashboard")
     args = ap.parse_args()
     collector.DATA_DIR.mkdir(exist_ok=True)
     try:
@@ -111,6 +140,6 @@ if __name__ == "__main__":
             sys.exit(0 if snapshot() else 1)
         if not 1 <= args.interval <= 1440:
             sys.exit("--interval must be between 1 and 1440 minutes")
-        run(args.interval)
+        run(args.interval, None if args.no_ping else args.ping_url)
     except KeyboardInterrupt:
         log("Stopped.")
