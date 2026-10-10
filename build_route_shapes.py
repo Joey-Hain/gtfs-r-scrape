@@ -23,6 +23,25 @@ Snapping moves a line by at most ~CELL_M/sqrt(2) (~7 m) — well inside the
 mask widths the dashboard offers (±15 m and up) and inside typical bus GPS
 error anyway.
 
+Second output, from the same download: the per-trip lookup behind the
+dashboard's "click a bus to see its route and next stops" (/api/trip).
+The de-duplicated network above can't do that — it no longer knows which
+route a line belongs to — so the individual shapes are also written:
+
+  shapes/trip_lookup.json    manifest: generated time, shard count, counts
+  shapes/trips/NNN.json      {trip_id: shape_id}
+  shapes/geom/NNN.json       {shape_id: flat delta-encoded line, as above}
+  shapes/stops.json          {stop_id: [lat_e5, lon_e5, stop_name]}
+
+Only shapes that come within RADIUS_KM of the CBD (and the trips using
+them) are kept, but each kept shape is written whole, so a clicked bus
+shows its full route. Trips and shapes are split into N_SHARDS files by
+zlib.crc32(id) % N_SHARDS, so the dashboard fetches one small shard per
+click instead of loading the whole timetable into its 512 MB instance.
+The real-time feed already supplies each trip's upcoming stops and
+predicted delays; stops.json only adds where those stops are and their
+names.
+
 Usage:
     TFNSW_API_KEY=... python build_route_shapes.py
     python build_route_shapes.py --zip path/to/bundle.zip   # skip download
@@ -36,6 +55,7 @@ import os
 import sys
 import tempfile
 import zipfile
+import zlib
 from collections import defaultdict
 from datetime import datetime
 from math import ceil, cos, hypot, radians
@@ -49,6 +69,10 @@ RADIUS_KM = float(os.getenv("SHAPES_RADIUS_KM", "12"))
 CELL_M = 10.0
 SIMPLIFY_M = 6.0
 OUT_PATH = Path("shapes/route_shapes.json")
+# Per-trip lookup (see the docstring's second output)
+N_SHARDS = 128
+TRIP_SIMPLIFY_M = 5.0
+STOPS_RADIUS_KM = float(os.getenv("STOPS_RADIUS_KM", "25"))
 
 LAT0, LON0 = SYDNEY_CBD
 M_PER_DEG_LAT = 110_574.0
@@ -74,14 +98,13 @@ def download(dest):
     print(f"downloaded {os.path.getsize(dest) / 1e6:.1f} MB", flush=True)
 
 
-def iter_shapes_members(zip_path, tmpdir):
-    """Yield open binary file objects for every shapes.txt in the bundle,
-    whether it's flat or one inner zip per agency."""
+def iter_gtfs_zips(zip_path, tmpdir):
+    """Yield an open ZipFile for each GTFS feed in the bundle — the bundle
+    itself if it's flat, otherwise each per-agency inner zip in turn."""
     with zipfile.ZipFile(zip_path) as outer:
         names = outer.namelist()
-        if "shapes.txt" in names:
-            with outer.open("shapes.txt") as f:
-                yield f
+        if "shapes.txt" in names or "trips.txt" in names:
+            yield outer
             return
         for i, name in enumerate(names):
             if not name.endswith(".zip"):
@@ -92,34 +115,68 @@ def iter_shapes_members(zip_path, tmpdir):
                     dst.write(chunk)
             try:
                 with zipfile.ZipFile(inner_path) as inner:
-                    if "shapes.txt" in inner.namelist():
-                        with inner.open("shapes.txt") as f:
-                            yield f
+                    yield inner
             finally:
                 os.unlink(inner_path)
 
 
-def read_shapes(zip_path):
-    """{shape_id: [(seq, x, y), ...]} for every shape point (unclipped —
-    clipping happens per segment so a shape crossing the boundary keeps
-    its inside part intact)."""
-    shapes = defaultdict(list)
-    n = 0
-    with tempfile.TemporaryDirectory() as tmpdir:
-        for member in iter_shapes_members(zip_path, tmpdir):
-            reader = csv.reader(codecs.iterdecode(member, "utf-8-sig"))
+def iter_csv(zf, member, columns):
+    """Yield rows of one GTFS file as tuples of the requested columns
+    (stripped strings). Missing file or column: yields nothing."""
+    if member not in zf.namelist():
+        return
+    with zf.open(member) as f:
+        reader = csv.reader(codecs.iterdecode(f, "utf-8-sig"))
+        try:
             header = [h.strip() for h in next(reader)]
-            si, la, lo, sq = (header.index(c) for c in
-                              ("shape_id", "shape_pt_lat", "shape_pt_lon", "shape_pt_sequence"))
-            for row in reader:
+        except StopIteration:
+            return
+        if any(c not in header for c in columns):
+            print(f"  {member}: missing one of {columns}, skipped", flush=True)
+            return
+        idx = [header.index(c) for c in columns]
+        top = max(idx)
+        for row in reader:
+            if len(row) > top:
+                yield tuple(row[i].strip() for i in idx)
+
+
+def read_bundle(zip_path):
+    """One pass over the bundle. Returns
+    shapes: {shape_id: [(seq, x, y), ...]} for every shape point (unclipped —
+            clipping happens per segment so a shape crossing the boundary
+            keeps its inside part intact),
+    trips:  {trip_id: shape_id},
+    stops:  {stop_id: (lat, lon, name)} within STOPS_RADIUS_KM."""
+    shapes = defaultdict(list)
+    trips = {}
+    stops = {}
+    n = 0
+    sr2 = (STOPS_RADIUS_KM * 1000) ** 2
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for zf in iter_gtfs_zips(zip_path, tmpdir):
+            for sid, la, lo, sq in iter_csv(zf, "shapes.txt",
+                                            ("shape_id", "shape_pt_lat", "shape_pt_lon", "shape_pt_sequence")):
                 try:
-                    x, y = to_xy(float(row[la]), float(row[lo]))
-                    shapes[row[si]].append((int(float(row[sq])), x, y))
-                except (ValueError, IndexError):
+                    x, y = to_xy(float(la), float(lo))
+                    shapes[sid].append((int(float(sq)), x, y))
+                except ValueError:
                     continue
                 n += 1
-    print(f"read {n} shape points across {len(shapes)} shapes", flush=True)
-    return shapes
+            for tid, sid in iter_csv(zf, "trips.txt", ("trip_id", "shape_id")):
+                if tid and sid:
+                    trips[tid] = sys.intern(sid)
+            for sid, name, la, lo in iter_csv(zf, "stops.txt", ("stop_id", "stop_name", "stop_lat", "stop_lon")):
+                try:
+                    lat, lon = float(la), float(lo)
+                except ValueError:
+                    continue
+                x, y = to_xy(lat, lon)
+                if x * x + y * y <= sr2:
+                    stops[sid] = (lat, lon, name)
+    print(f"read {n} shape points across {len(shapes)} shapes, "
+          f"{len(trips)} trips, {len(stops)} stops within {STOPS_RADIUS_KM:g} km", flush=True)
+    return shapes, trips, stops
 
 
 def build_edges(shapes):
@@ -238,6 +295,79 @@ def encode(lines):
     return out, n_pts
 
 
+def shard_of(key):
+    """Stable shard number for a trip or shape id. The dashboard computes the
+    same thing (zlib.crc32 is deterministic across runs and machines, unlike
+    Python's hash())."""
+    return zlib.crc32(key.encode("utf-8")) % N_SHARDS
+
+
+def encode_line(xy):
+    """[(x, y), ...] in metres -> flat delta-encoded 1e-5 degree ints."""
+    enc, plat, plon = [], 0, 0
+    for x, y in xy:
+        lat, lon = to_latlon(x, y)
+        ilat, ilon = round(lat * 1e5), round(lon * 1e5)
+        enc += [ilat - plat, ilon - plon]
+        plat, plon = ilat, ilon
+    return enc
+
+
+def write_trip_lookup(shapes, trips, stops, out_dir):
+    """Write the per-trip lookup files (see the module docstring). Every
+    shard file is rewritten on each run, empty or not, so a trip that has
+    left the timetable can't linger in a stale shard."""
+    r2 = (RADIUS_KM * 1000) ** 2
+    geom = [{} for _ in range(N_SHARDS)]
+    n_pts = 0
+    for sid, pts in shapes.items():
+        if not any(x * x + y * y <= r2 for _, x, y in pts):
+            continue
+        pts.sort()
+        line = simplify([(x, y) for _, x, y in pts], TRIP_SIMPLIFY_M)
+        if len(line) < 2:
+            continue
+        geom[shard_of(sid)][sid] = encode_line(line)
+        n_pts += len(line)
+    kept = {sid for g in geom for sid in g}
+
+    trip_shards = [{} for _ in range(N_SHARDS)]
+    for tid, sid in trips.items():
+        if sid in kept:
+            trip_shards[shard_of(tid)][tid] = sid
+
+    for sub, shards in (("trips", trip_shards), ("geom", geom)):
+        d = out_dir / sub
+        d.mkdir(parents=True, exist_ok=True)
+        for k, data in enumerate(shards):
+            (d / f"{k:03d}.json").write_text(json.dumps(data, separators=(",", ":"), sort_keys=True))
+
+    stops_doc = {sid: [round(lat * 1e5), round(lon * 1e5), name]
+                 for sid, (lat, lon, name) in sorted(stops.items())}
+    (out_dir / "stops.json").write_text(json.dumps(stops_doc, separators=(",", ":"), ensure_ascii=False))
+
+    n_trips = sum(len(t) for t in trip_shards)
+    manifest = {
+        "generated": datetime.now(tz=SYDNEY_TZ).isoformat(timespec="seconds"),
+        "source": "TfNSW bus GTFS schedule shapes.txt, trips.txt, stops.txt",
+        "n_shards": N_SHARDS,
+        "shard": "zlib.crc32(id.encode('utf-8')) % n_shards, file NNN.json (3-digit, zero-padded)",
+        "encoding": "geom lines as route_shapes.json; stops [lat_e5, lon_e5, name]",
+        "radius_km": RADIUS_KM,
+        "stops_radius_km": STOPS_RADIUS_KM,
+        "simplify_m": TRIP_SIMPLIFY_M,
+        "n_trips": n_trips,
+        "n_shapes": len(kept),
+        "n_points": n_pts,
+        "n_stops": len(stops_doc),
+    }
+    (out_dir / "trip_lookup.json").write_text(json.dumps(manifest, indent=1))
+    size = sum(f.stat().st_size for f in out_dir.rglob("*.json")
+               if f.parent.name in ("trips", "geom") or f.name == "stops.json")
+    print(f"wrote trip lookup: {n_trips} trips, {len(kept)} shapes ({n_pts} points), "
+          f"{len(stops_doc)} stops, {size / 1e6:.1f} MB over {2 * N_SHARDS + 1} files", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--zip", help="use a local GTFS bundle instead of downloading")
@@ -245,12 +375,12 @@ def main():
     args = ap.parse_args()
 
     if args.zip:
-        shapes = read_shapes(args.zip)
+        shapes, trips, stops = read_bundle(args.zip)
     else:
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "bundle.zip")
             download(path)
-            shapes = read_shapes(path)
+            shapes, trips, stops = read_bundle(path)
     if not shapes:
         sys.exit("No shapes.txt found in the bundle")
 
@@ -271,6 +401,10 @@ def main():
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, separators=(",", ":")))
     print(f"wrote {out}: {len(lines)} lines, {n_pts} points, {out.stat().st_size / 1e3:.0f} kB", flush=True)
+
+    # Per-trip lookup. Shapes are re-sorted inside; build_edges already
+    # sorted them in place, so this is cheap.
+    write_trip_lookup(shapes, trips, stops, out.parent)
 
 
 if __name__ == "__main__":
