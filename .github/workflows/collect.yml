@@ -1,9 +1,9 @@
 name: Collect bus positions
 
-# GitHub only runs short */5 schedules when it has spare capacity (3-6 times a
-# day in practice). Instead each run starts hourly and stays up for 55 minutes,
-# taking a snapshot at :05, :20, :35 and :50 (see collector.py --minutes), then
-# commits once. A late or skipped start only loses part of an hour.
+# GitHub's scheduler is unreliable: even this hourly schedule only fires every
+# few hours in practice. So each run stays up for 55 minutes, taking a snapshot
+# every 5 minutes (:02, :07 ... :57; see collector.py --minutes), then commits
+# once. Each start that does happen yields ~11 snapshots instead of one.
 on:
   schedule:
     - cron: '2 * * * *'
@@ -45,7 +45,8 @@ jobs:
           TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
           MINUTES: ${{ github.event.inputs.minutes || '55' }}
           # TFNSW_VEHICLE_POS_URL is optional; collector.py defaults to the buses endpoint
-          # COLLECTOR_INTERVAL_MIN / COLLECTOR_OFFSET_MIN change the snapshot slots
+          COLLECTOR_INTERVAL_MIN: '5'   # minutes between snapshots
+          COLLECTOR_OFFSET_MIN: '2'     # :02, :07 ... avoids the home collector's :00/:15/:30/:45
         run: python collector.py --minutes "$MINUTES"
 
       - name: Commit and push data

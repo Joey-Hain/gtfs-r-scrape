@@ -7,9 +7,9 @@ to a daily CSV file at data/YYYY-MM-DD.csv in the current repo.
 
 Run once (python collector.py) it takes a single snapshot and exits.
 GitHub Actions runs it with --minutes 55: it stays running and takes a
-snapshot at :05, :20, :35 and :50 past each hour, so a workflow that starts
-hourly collects all day, instead of relying on GitHub's 5-minute schedule
-(which in practice only fired 3-6 times a day). The workflow handles the
+snapshot every 5 minutes (:02, :07 ... :57), so whenever GitHub's hourly
+schedule actually fires (in practice only every few hours) the run collects
+~11 snapshots instead of one. The workflow handles the
 git commit/push once the loop ends.
 
 Required environment variables (set as GitHub Actions secrets):
@@ -244,10 +244,10 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description="TfNSW bus position + delay collector")
     p.add_argument("--minutes", type=float, default=0,
                    help="keep running this long, snapshotting on fixed slots (0 = one snapshot)")
-    p.add_argument("--interval", type=int, default=int(os.getenv("COLLECTOR_INTERVAL_MIN", "15")),
+    p.add_argument("--interval", type=int, default=int(os.getenv("COLLECTOR_INTERVAL_MIN", "5")),
                    help="minutes between snapshots in --minutes mode")
-    p.add_argument("--offset", type=int, default=int(os.getenv("COLLECTOR_OFFSET_MIN", "5")),
-                   help="minutes past each interval to snapshot; 5 interleaves with the "
+    p.add_argument("--offset", type=int, default=int(os.getenv("COLLECTOR_OFFSET_MIN", "2")),
+                   help="minutes past each interval to snapshot; 2 keeps clear of the "
                         "home collector's quarter-hour snapshots")
     args = p.parse_args()
     if args.minutes > 0:

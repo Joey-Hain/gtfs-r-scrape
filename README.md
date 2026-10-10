@@ -6,7 +6,7 @@ TfNSW doesn't publish historical GTFS-Realtime data, and the dashboard's Render.
 
 ## How it works
 
-- **GitHub Action collector:** `.github/workflows/collect.yml` starts hourly and runs `collector.py --minutes 55`, which stays up and takes a snapshot at :05, :20, :35 and :50 past each hour, then commits the new rows to `data/` once. GitHub's short schedules only fired 3-6 times a day; a long-running job gets about 90 snapshots a day. The :05 offset interleaves with the home collector's quarter-hour snapshots instead of duplicating them.
+- **GitHub Action collector:** `.github/workflows/collect.yml` starts hourly and runs `collector.py --minutes 55`, which stays up and takes a snapshot every 5 minutes (:02, :07 … :57), then commits the new rows to `data/` once. GitHub's scheduler only actually starts the hourly job every few hours, so each start that does happen collects about 11 snapshots instead of one. The :02 offset keeps clear of the home collector's quarter-hour snapshots instead of duplicating them.
 - **Home machine collector:** `local_collector.py` runs the same collector every 15 minutes on any always-on computer and writes to `data-local/`. Push or upload those files whenever you like; the dashboard reads both folders.
 - **Route shapes:** `.github/workflows/route-shapes.yml` runs `build_route_shapes.py` weekly (and whenever the script changes) to rebuild `shapes/route_shapes.json` and the per-trip lookup from the TfNSW bus timetable.
 
