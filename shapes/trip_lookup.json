@@ -1,0 +1,14 @@
+{
+ "generated": "2026-10-10T14:44:35+11:00",
+ "source": "TfNSW bus GTFS schedule shapes.txt, trips.txt, stops.txt",
+ "n_shards": 128,
+ "shard": "zlib.crc32(id.encode('utf-8')) % n_shards, file NNN.json (3-digit, zero-padded)",
+ "encoding": "geom lines as route_shapes.json; stops [lat_e5, lon_e5, name]",
+ "radius_km": 12.0,
+ "stops_radius_km": 25.0,
+ "simplify_m": 5.0,
+ "n_trips": 51823,
+ "n_shapes": 2136,
+ "n_points": 156585,
+ "n_stops": 15154
+}
