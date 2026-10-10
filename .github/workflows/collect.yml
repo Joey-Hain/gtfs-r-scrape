@@ -2,15 +2,20 @@ name: Collect bus positions
 
 # GitHub's scheduler is unreliable: even this hourly schedule only fires every
 # few hours in practice. So each run stays up for 55 minutes, taking a snapshot
-# every 5 minutes (:02, :07 ... :57; see collector.py --minutes), then commits
-# once. Each start that does happen yields ~11 snapshots instead of one.
+# every 5 minutes (:02, :07 ... :57; see collector.py --minutes), then commits.
+# Each start that does happen yields ~11 snapshots instead of one.
+#
+# Manual runs can go much longer (up to MAX_MINUTES, ~5h40m): the collector
+# runs in chunks of at most CHUNK_MINUTES and the data is committed and pushed
+# after every chunk, so a long run saves as it goes and a cancel or timeout
+# loses at most the chunk in progress.
 on:
   schedule:
     - cron: '2 * * * *'
   workflow_dispatch:    # also allow manual trigger from the Actions tab
     inputs:
       minutes:
-        description: 'How long to keep collecting (0 = single snapshot)'
+        description: 'How long to keep collecting, in minutes (0 = single snapshot, max 340)'
         default: '55'
 
 # Never run two collectors at once; a late start queues behind the current one
@@ -21,10 +26,12 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    # 360 is the hard ceiling for a job on GitHub-hosted runners. MAX_MINUTES
+    # below leaves ~20 minutes of that for setup and the final push.
+    timeout-minutes: 360
 
     permissions:
-      contents: write         # needed to push the CSV commit back to the repo
+      contents: write         # needed to push the CSV commits back to the repo
 
     steps:
       - name: Checkout repo
@@ -40,27 +47,67 @@ jobs:
       - name: Install dependencies
         run: pip install requests gtfs-realtime-bindings tzdata
 
-      - name: Run collector
+      - name: Run collector (committing after each chunk)
         env:
           TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
           MINUTES: ${{ github.event.inputs.minutes || '55' }}
+          MAX_MINUTES: '340'
+          CHUNK_MINUTES: '60'
           # TFNSW_VEHICLE_POS_URL is optional; collector.py defaults to the buses endpoint
           COLLECTOR_INTERVAL_MIN: '5'   # minutes between snapshots
           COLLECTOR_OFFSET_MIN: '2'     # :02, :07 ... avoids the home collector's :00/:15/:30/:45
-        run: python collector.py --minutes "$MINUTES"
-
-      - name: Commit and push data
-        if: success() || failure()
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/
-          # Only commit if something actually changed (skips empty runs gracefully)
-          git diff --cached --quiet && exit 0
-          git commit -m "data: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          # data-local/ pushes from the home collector may have landed meanwhile
-          for i in 1 2 3; do
-            git pull --rebase -q && git push -q && exit 0
-            sleep 5
+          # Whole minutes only; anything that isn't a number is an error
+          MINUTES="${MINUTES%%.*}"
+          case "$MINUTES" in
+            ''|*[!0-9]*) echo "::error::minutes must be a number, got '$MINUTES'"; exit 1 ;;
+          esac
+          if [ "$MINUTES" -gt "$MAX_MINUTES" ]; then
+            echo "::warning::Asked for $MINUTES minutes; capping at $MAX_MINUTES (job limit is 360)"
+            MINUTES="$MAX_MINUTES"
+          fi
+
+          if [ "$MINUTES" -eq 0 ]; then
+            python collector.py
+            exit $?
+          fi
+
+          # Wall-clock deadline, so time spent committing between chunks
+          # counts towards the total rather than extending the run.
+          end=$(( $(date +%s) + MINUTES * 60 ))
+          chunks_ok=0; chunks_failed=0; in_a_row=0
+          while :; do
+            left=$(( (end - $(date +%s)) / 60 ))
+            [ "$left" -le 0 ] && break
+            # A leftover shorter than one snapshot interval may hold no slot,
+            # and the collector would return at once; just finish instead.
+            n=$((chunks_ok + chunks_failed))
+            [ "$n" -gt 0 ] && [ "$left" -lt "$COLLECTOR_INTERVAL_MIN" ] && break
+            chunk=$(( left < CHUNK_MINUTES ? left : CHUNK_MINUTES ))
+            echo "::group::Collecting for $chunk min ($left min left)"
+            if python collector.py --minutes "$chunk"; then
+              chunks_ok=$((chunks_ok + 1)); in_a_row=0
+            else
+              chunks_failed=$((chunks_failed + 1)); in_a_row=$((in_a_row + 1))
+            fi
+            echo "::endgroup::"
+            # A failed push isn't fatal: the commit stays local and goes up
+            # with the next chunk's push (or the final step's).
+            bash .github/scripts/commit-data.sh || echo "::warning::Push failed; will retry after the next chunk"
+            # Two failed chunks in a row means something is broken (bad key,
+            # feed down, collector crashing on start) - stop rather than
+            # restarting it over and over for the rest of the run.
+            if [ "$in_a_row" -ge 2 ]; then
+              echo "::error::Two chunks in a row failed; stopping early"
+              break
+            fi
           done
-          exit 1
+          echo "Chunks: $chunks_ok ok, $chunks_failed with every snapshot failing"
+          # Red only if nothing worked at all (e.g. a bad API key)
+          [ "$chunks_ok" -gt 0 ]
+
+      # Catches anything the loop didn't push: a crash mid-chunk, a cancel,
+      # or a push that failed after the last chunk.
+      - name: Commit and push remaining data
+        if: always()
+        run: bash .github/scripts/commit-data.sh

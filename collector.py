@@ -10,7 +10,8 @@ GitHub Actions runs it with --minutes 55: it stays running and takes a
 snapshot every 5 minutes (:02, :07 ... :57), so whenever GitHub's hourly
 schedule actually fires (in practice only every few hours) the run collects
 ~11 snapshots instead of one. The workflow handles the
-git commit/push once the loop ends.
+git commit/push: for long manual runs it calls this in chunks of up to
+60 minutes and pushes after each chunk (see .github/workflows/collect.yml).
 
 Required environment variables (set as GitHub Actions secrets):
     TFNSW_API_KEY            — TfNSW Open Data Hub API key
