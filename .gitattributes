@@ -1,0 +1,5 @@
+# Collector CSVs are append-only, so when two runs append to the same day's
+# file (e.g. a run that queued behind a long manual run and checked out an
+# older commit), keep both sides' rows instead of failing the rebase.
+data/*.csv       merge=union
+data-local/*.csv merge=union

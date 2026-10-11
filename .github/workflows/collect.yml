@@ -1,9 +1,10 @@
 name: Collect bus positions
 
-# GitHub's scheduler is unreliable: even this hourly schedule only fires every
-# few hours in practice. So each run stays up for 55 minutes, taking a snapshot
-# every 5 minutes (:02, :07 ... :57; see collector.py --minutes), then commits.
-# Each start that does happen yields ~11 snapshots instead of one.
+# GitHub's scheduler is unreliable: this hourly schedule only fires every few
+# hours in practice. So each run stays up for 55 minutes, taking a snapshot
+# every 5 minutes (:02, :07 ... :57; see collector.py --minutes), commits, and
+# then starts the next run itself (last step), so collection is continuous.
+# The hourly cron is only a backup that restarts the chain if it ever breaks.
 #
 # Manual runs can go much longer (up to MAX_MINUTES, ~5h40m): the collector
 # runs in chunks of at most CHUNK_MINUTES and the data is committed and pushed
@@ -17,6 +18,9 @@ on:
       minutes:
         description: 'How long to keep collecting, in minutes (0 = single snapshot, max 340)'
         default: '55'
+      chain:
+        description: 'Start the next run when this one finishes (yes/no)'
+        default: 'yes'
 
 # Never run two collectors at once; a late start queues behind the current one
 concurrency:
@@ -32,6 +36,7 @@ jobs:
 
     permissions:
       contents: write         # needed to push the CSV commits back to the repo
+      actions: write          # needed to start the next run (last step)
 
     steps:
       - name: Checkout repo
@@ -48,6 +53,7 @@ jobs:
         run: pip install requests gtfs-realtime-bindings tzdata
 
       - name: Run collector (committing after each chunk)
+        id: collect
         env:
           TFNSW_API_KEY: ${{ secrets.TFNSW_API_KEY }}
           MINUTES: ${{ github.event.inputs.minutes || '55' }}
@@ -111,3 +117,18 @@ jobs:
       - name: Commit and push remaining data
         if: always()
         run: bash .github/scripts/commit-data.sh
+
+      # Chain: start the next run so collection doesn't depend on GitHub's
+      # patchy cron. A workflow_dispatch made with GITHUB_TOKEN is allowed to
+      # start a run; the concurrency group above keeps it to one at a time.
+      # Skipped when the run was cancelled (that's a deliberate stop), when
+      # every chunk failed (e.g. bad key - don't loop on it), and for short
+      # test runs or when started with chain=no.
+      - name: Start next run
+        if: >-
+          !cancelled() && steps.collect.outcome == 'success' &&
+          (github.event_name == 'schedule' ||
+           (github.event.inputs.chain != 'no' && fromJSON(github.event.inputs.minutes || '55') >= 30))
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run collect.yml --repo "$GITHUB_REPOSITORY" --ref main
