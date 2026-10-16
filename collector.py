@@ -216,6 +216,28 @@ def next_slot(now: datetime, interval_min: int, offset_min: int) -> datetime:
     return base.replace(hour=0, minute=0) + timedelta(minutes=nxt)
 
 
+# Keep-alive for the dashboard. Render's Free tier puts a web service to
+# sleep after 15 minutes without an inbound request; waking takes about a
+# minute (503 "hibernate-wake-error" meanwhile) and wipes the instance's
+# memory and disk caches, so the first heatmap after each wake re-downloads
+# a week of CSVs from GitHub. The home collector's ping only works while that
+# machine is on, so this Action, which already runs around the clock, pings
+# after every snapshot as well. Set DASHBOARD_PING_URL to "" to disable.
+DASHBOARD_PING_URL = os.getenv("DASHBOARD_PING_URL", "https://civl3704.joeyhain.org/ping")
+
+
+def ping_dashboard():
+    if not DASHBOARD_PING_URL:
+        return
+    try:
+        r = requests.get(DASHBOARD_PING_URL, timeout=90)  # a cold wake takes ~1 min
+        print(f"Ping {DASHBOARD_PING_URL} -> HTTP {r.status_code}"
+              f"{' (' + r.headers['x-render-routing'] + ')' if 'x-render-routing' in r.headers else ''}",
+              flush=True)
+    except requests.RequestException as e:
+        print(f"Ping {DASHBOARD_PING_URL} failed: {e!r}", flush=True)
+
+
 def run_for(minutes: float, interval_min: int, offset_min: int):
     """Keep taking snapshots on fixed slots until `minutes` have passed.
 
@@ -235,6 +257,7 @@ def run_for(minutes: float, interval_min: int, offset_min: int):
         except Exception as e:
             failed += 1
             print(f"Snapshot failed: {e}", file=sys.stderr, flush=True)
+        ping_dashboard()
     print(f"Done: {ok} snapshots, {failed} failed", flush=True)
     if failed and not ok:
         sys.exit(1)

@@ -11,6 +11,8 @@ TfNSW doesn't publish historical GTFS-Realtime data, and the dashboard's Render.
 - **Home machine collector:** `local_collector.py` runs the same collector every 15 minutes on any always-on computer and writes to `data-local/`. Push or upload those files whenever you like; the dashboard reads both folders.
 - **Route shapes:** `.github/workflows/route-shapes.yml` runs `build_route_shapes.py` weekly (and whenever the script changes) to rebuild `shapes/route_shapes.json` and the per-trip lookup from the TfNSW bus timetable.
 
+After each snapshot the Action also requests the dashboard's `/ping` (set the `DASHBOARD_PING_URL` environment variable to an empty string to turn this off). Render's free tier puts the dashboard to sleep after 15 minutes without a request, and waking it takes about a minute and clears its caches, so this keeps it awake around the clock whether or not the home collector is running.
+
 Each snapshot fetches the GTFS-Realtime trip update feed (delays) and vehicle position feed, joins them on trip ID and keeps every bus within 10 km of the Sydney CBD. Daily files older than 60 days are deleted (they remain in the git history).
 
 ## Data format
