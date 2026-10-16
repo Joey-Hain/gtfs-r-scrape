@@ -15,6 +15,16 @@ After each snapshot the Action also requests the dashboard's `/ping` (set the `D
 
 Each snapshot fetches the GTFS-Realtime trip update feed (delays) and vehicle position feed, joins them on trip ID and keeps every bus within 10 km of the Sydney CBD. Daily files older than 60 days are deleted (they remain in the git history).
 
+## Pre-aggregated heatmap cells
+
+After every data push the Action runs `build_cells.py` and `.github/scripts/publish-cells.sh`, which add every reading into the dashboard's 10 m grid cells (all-day plus the AM peak, midday, PM peak and evening buckets) and force-push the result as a single commit to the `cells` branch:
+
+- `windows/1.bin.gz`, `windows/24.bin.gz`, `windows/168.bin.gz`: the last 1, 24 and 168 hours of collected data, ending at the newest snapshot
+- `days/YYYY-MM-DD.bin.gz`: one Sydney day each, used for custom date ranges; a day is only rebuilt when its CSVs change
+- `manifest.json`: build time, newest snapshot and a hash of each day's source files
+
+The dashboard downloads these instead of parsing the CSVs itself, because Render's free instance couldn't parse a week of 5-minute data within its 20-second limit. The binary format is documented at the top of `build_cells.py`. To build locally: `python build_cells.py --out cells-out`.
+
 ## Data format
 
 One file per day, named `YYYY-MM-DD.csv` (Sydney time), one row per bus per snapshot:

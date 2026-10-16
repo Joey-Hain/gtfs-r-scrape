@@ -100,6 +100,8 @@ jobs:
             # A failed push isn't fatal: the commit stays local and goes up
             # with the next chunk's push (or the final step's).
             bash .github/scripts/commit-data.sh || echo "::warning::Push failed; will retry after the next chunk"
+            # Pre-aggregated heatmap cells for the dashboard (cells branch).
+            bash .github/scripts/publish-cells.sh || echo "::warning::Publishing heatmap cells failed; will retry after the next chunk"
             # Two failed chunks in a row means something is broken (bad key,
             # feed down, collector crashing on start) - stop rather than
             # restarting it over and over for the rest of the run.
@@ -117,6 +119,12 @@ jobs:
       - name: Commit and push remaining data
         if: always()
         run: bash .github/scripts/commit-data.sh
+
+      # The dashboard's heatmaps read these instead of parsing the raw CSVs
+      # (see build_cells.py). Never fails the run.
+      - name: Publish heatmap cells
+        if: always()
+        run: bash .github/scripts/publish-cells.sh || echo "::warning::Publishing heatmap cells failed"
 
       # Chain: start the next run so collection doesn't depend on GitHub's
       # patchy cron. A workflow_dispatch made with GITHUB_TOKEN is allowed to
