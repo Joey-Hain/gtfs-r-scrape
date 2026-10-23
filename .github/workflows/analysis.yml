@@ -35,9 +35,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
-        run: |
-          sudo apt-get install -y -qq fonts-inter > /dev/null || echo "::warning::Inter not installed; charts fall back to another font"
-          pip install -q pandas numpy scipy matplotlib
+        run: pip install -q pandas numpy scipy matplotlib
       - name: Build and publish charts
         env:
           START: ${{ github.event.inputs.start }}

@@ -85,15 +85,11 @@ PURPLES = LinearSegmentedColormap.from_list("burden", ["#fde0c5", "#f59e72", "#e
 
 
 def setup_fonts():
-    for fam in ("Inter", "Helvetica", "Arial", "Liberation Sans", "DejaVu Sans"):
-        if any(f.name == fam for f in font_manager.fontManager.ttflist):
-            plt.rcParams["font.family"] = fam
-            break
     plt.rcParams.update({
         "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
         "text.color": INK, "axes.labelcolor": INK2, "xtick.color": INK2, "ytick.color": INK2,
         "axes.edgecolor": GRID, "axes.spines.top": False, "axes.spines.right": False,
-        "axes.titlesize": 15, "axes.titleweight": "semibold", "axes.titlelocation": "left",
+        "axes.titlesize": 15, "axes.titleweight": "bold", "axes.titlelocation": "left",
         "axes.labelsize": 11, "xtick.labelsize": 10, "ytick.labelsize": 10,
         "legend.frameon": False, "legend.fontsize": 10, "figure.dpi": 100,
     })
@@ -257,30 +253,25 @@ def save(fig, out, name):
 
 
 def header(fig, title, sub=None, adjust=True):
-    """Title and subtitle pinned to the top of the figure, in inches, so they
-    never collide with the plot whatever the figure height."""
-    h = fig.get_figheight()
-    fig.text(0.012, 1 - 0.32 / h, title, fontsize=16, fontweight="semibold", color=INK, va="baseline")
-    if sub:
-        fig.text(0.012, 1 - 0.62 / h, sub, fontsize=10.5, color=INK2, va="baseline")
+    """Charts carry no title or subtitle (the slide supplies one); title and
+    sub are kept as arguments only to document what each chart shows."""
     if adjust:
-        fig.subplots_adjust(top=1 - 1.05 / h)
+        fig.subplots_adjust(top=1 - 0.3 / fig.get_figheight())
 
 
 def footer(fig, text):
-    fig.text(0.012, 0.012, text, fontsize=8.5, color=MUTED, ha="left", va="bottom")
+    pass
 
 
 def map_figure(extent):
-    fig = plt.figure(figsize=SLIDE)
-    h = SLIDE[1]
-    top, bottom = 1 - 0.95 / h, 0.35 / h
     if extent == "area":
-        ax = fig.add_axes([0.0, bottom, 0.58, top - bottom])
+        fig = plt.figure(figsize=(8, 8))
+        ax = fig.add_axes([0, 0, 1, 1])
         ax.set_xlim(-10_200, 10_200); ax.set_ylim(-10_200, 10_200)
-        side = fig.add_axes([0.6, bottom, 0.39, top - bottom]); side.axis("off")
+        side = None
     else:
-        ax = fig.add_axes([0.0, bottom, 1.0, top - bottom])
+        fig = plt.figure(figsize=(SLIDE[0], SLIDE[0] / 2))
+        ax = fig.add_axes([0, 0, 1, 1])
         x0, y0 = to_xy(MODEL_SW[0], MODEL_SW[1]); x1, y1 = to_xy(MODEL_NE[0], MODEL_NE[1])
         ax.set_xlim(x0, x1); ax.set_ylim(y0, y1)
         side = None
@@ -314,7 +305,8 @@ def map_colourbar(fig, ax, side, cmap, norm, label, ticks, labels):
         rect = [b.x0 + 0.01, b.y0 + 0.03, 0.26, 0.022]
     else:
         b = ax.get_position()
-        rect = [b.x0 + 0.02, b.y0 + 0.04, 0.22, 0.022]
+        wide = fig.get_figwidth() > fig.get_figheight()
+        rect = [b.x0 + 0.03, b.y0 + 0.05, 0.22 if wide else 0.34, 0.022 if wide else 0.016]
         bg = fig.add_axes([rect[0] - 0.012, rect[1] - 0.05, rect[2] + 0.034, 0.115])
         bg.set_xticks([]); bg.set_yticks([]); bg.patch.set_alpha(0.92)
         for sp in bg.spines.values():
@@ -331,6 +323,7 @@ def cbd_ring(ax):
 
 
 def label_hotspots(ax, spots, colour=INK):
+    return
     for i, s in enumerate(spots, 1):
         ax.plot(s["x"], s["y"], "o", ms=16, mfc="white", mec=colour, mew=1.6, zorder=6)
         ax.text(s["x"], s["y"], str(i), ha="center", va="center", fontsize=9,
@@ -338,8 +331,10 @@ def label_hotspots(ax, spots, colour=INK):
 
 
 def hotspot_panel(side, spots, title, fmt, note=None, colour=INK):
+    if side is None:
+        return
     side.set_xlim(0, 1); side.set_ylim(0, 1)
-    side.text(0, 0.97, title, fontsize=11.5, fontweight="semibold", va="top")
+    side.text(0, 0.97, title, fontsize=11.5, fontweight="bold", va="top")
     y = 0.88
     for i, s in enumerate(spots, 1):
         side.plot(0.025, y, "o", ms=16, mfc="white", mec=colour, mew=1.6, clip_on=False)
@@ -532,7 +527,7 @@ def chart_hourly(d, out, stats, window_txt):
              else "On-time running by hour of day")
     header(fig, title, f"Share of readings by hour · network {n['early']:.0f}% early vs {n['late']:.0f}% late · "
                        f"{window_txt}")
-    fig.subplots_adjust(top=1 - 1.6 / 6.2, bottom=0.17)
+    fig.subplots_adjust(top=1 - 0.6 / 6.2, bottom=0.17)
     h = g.index.values
     ax.bar(h, 100 * g["early"], color=EARLY_C, width=0.8, label="Early (more than 0:59 early)")
     ax.bar(h, 100 * g["on"], bottom=100 * g["early"], color=ONTIME_C, width=0.8, label="On time")
@@ -543,10 +538,9 @@ def chart_hourly(d, out, stats, window_txt):
         xc = (a + min(b, 24) - 1) / 2
         if "peak" in name:
             ax.axvspan(a - 0.5, b - 0.5, color="#f4f3f0", zorder=0)
-            ax.axvspan(a - 0.5, b - 0.5, ymin=1.0, ymax=1.2, color="#f4f3f0", clip_on=False, zorder=0)
-        ax.text(xc if name != "Evening" else 21.5, 110,
-                f"{name}: {p['on_time']:.0f}% on time\n{p['early']:.0f}% early · {p['late']:.0f}% late",
-                ha="center", va="center", fontsize=9, color=INK2)
+            ax.axvspan(a - 0.5, b - 0.5, ymin=1.0, ymax=1.08, color="#f4f3f0", clip_on=False, zorder=0)
+        ax.text(xc if name != "Evening" else 21.5, 104, name, ha="center", va="center",
+                fontsize=10, color=INK2)
     ax.set_xlim(-0.6, 23.6); ax.set_ylim(0, 100)
     ax.set_xticks(range(0, 24, 2)); ax.set_xticklabels([f"{i:02d}:00" for i in range(0, 24, 2)])
     ax.set_yticks([0, 25, 50, 75, 100]); ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
@@ -575,7 +569,7 @@ def chart_cbd(d, out, stats, window_txt):
         bars = ax.bar([0, 1], v, color=[SERIES[1], SERIES[0]], width=0.62)
         for b, val in zip(bars, v):
             ax.text(b.get_x() + b.get_width() / 2, val, fmt(val), ha="center", va="bottom",
-                    fontsize=12, fontweight="semibold", color=INK)
+                    fontsize=12, fontweight="bold", color=INK)
         ax.set_xticks([0, 1]); ax.set_xticklabels(["CBD", "Elsewhere"], fontsize=11)
         ax.set_yticks([]); ax.spines["left"].set_visible(False)
         ax.set_ylim(0, max(v) * 1.2); ax.tick_params(length=0)
@@ -604,11 +598,6 @@ def chart_concentration(d, out, stats, window_txt):
     ax.plot(cx, cn, color=MUTED, lw=2.2, ls=(0, (4, 3)), label="Bus readings (volume)")
     ax.legend(loc="lower right", bbox_to_anchor=(1, 0.08))
     ax.plot([0, 100], [0, 100], color=GRID, lw=1)
-    ax.text(70, 66, "if spread evenly", color=MUTED, fontsize=9, rotation=31)
-    ax.axvline(5, color=GRID, lw=1)
-    ax.annotate(f"Top 5% of areas hold {cb[i5]:.0f}% of the burden\nand {cn[i5]:.0f}% of the bus readings",
-                (5, cb[i5]), xytext=(12, cb[i5] - 22), fontsize=10.5, color=INK,
-                arrowprops=dict(arrowstyle="-", color=INK2, lw=0.8))
     ax.set_xlim(0, 100); ax.set_ylim(0, 101)
     ax.set_xlabel("Share of 200 m areas, highest burden first"); ax.set_ylabel("Cumulative share")
     ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%"); ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
@@ -711,7 +700,7 @@ def chart_sw_link(repo, out, stats, start, end):
         bars = ax.bar(range(len(v)), v, color=cols, width=0.6)
         for b, val in zip(bars, v):
             ax.text(b.get_x() + b.get_width() / 2, val, fmt(val), ha="center", va="bottom",
-                    fontsize=12, fontweight="semibold")
+                    fontsize=12, fontweight="bold")
         ax.set_xticks(range(len(v))); ax.set_xticklabels(labs, fontsize=10.5)
         ax.set_yticks([]); ax.spines["left"].set_visible(False)
         ax.set_ylim(0, max(v) * 1.2); ax.tick_params(length=0)
@@ -731,7 +720,6 @@ def chart_collection(repo, out, stats):
     x = pd.to_datetime(s.index)
     ax.bar(x, s.values, color=SERIES[0], width=0.8)
     ax.axhline(288, color=INK2, lw=1, ls=(0, (4, 3)))
-    ax.text(x.min(), 294, "288 = one every 5 minutes", fontsize=9.5, color=INK2, va="bottom")
     ax.set_ylim(0, 330); ax.grid(axis="y", color=GRID, lw=0.8); ax.set_axisbelow(True)
     ax.tick_params(length=0); ax.spines["left"].set_visible(False)
     ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%d/%m"))
