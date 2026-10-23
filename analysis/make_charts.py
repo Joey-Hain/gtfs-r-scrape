@@ -710,6 +710,72 @@ def chart_sw_link(repo, out, stats, start, end):
     return [save(fig, out, "southwest_link_artefact")]
 
 
+def period_hours(a, b):
+    return [h % 24 for h in range(a, b)]
+
+
+def chart_periods(d, out, segs, stats, window_txt):
+    """Weekday time-of-day comparison: average delay maps per period on one
+    shared scale, and the early / on time / late split per period."""
+    files = []
+    wk = d[d["ts"].dt.dayofweek < 5]
+    dd = wk[wk["has_delay"]]
+    r = Raster()
+    mid = segs.mean(axis=1)
+    norm = Normalize(1, 3.5)
+    prior = float(dd["late_min"].mean())
+    fields = {}
+    for name, a, b in PERIODS:
+        sub = dd[dd["hour"].isin(period_hours(a, b))]
+        x, y = to_xy(sub["lat"].values, sub["lon"].values)
+        f, w = field(r, x, y, sub["late_min"].values, DELAY_R_M, prior)
+        fields[name] = (r.sample(f, mid[:, 0], mid[:, 1]), r.sample(w, mid[:, 0], mid[:, 1]))
+    stats["weekday_by_period"] = {name: otr(wk[wk["hour"].isin(period_hours(a, b))]) for name, a, b in PERIODS}
+
+    def label(name, a, b):
+        return f"{name}  {a:02d}:00–{b % 24:02d}:00"
+
+    for fname, names, figsize, grid in (
+            ("map_average_delay_peaks", ["AM peak", "PM peak"], (13.33, 6.9), (1, 2)),
+            ("map_average_delay_periods", [p[0] for p in PERIODS], (11, 11.6), (2, 2))):
+        fig, axes = plt.subplots(*grid, figsize=figsize)
+        fig.subplots_adjust(left=0.005, right=0.995, top=0.95, bottom=0.07, wspace=0.02, hspace=0.08)
+        for ax, name in zip(np.ravel(axes), names):
+            a, b = next((p[1], p[2]) for p in PERIODS if p[0] == name)
+            ax.set_aspect("equal"); ax.axis("off")
+            ax.set_xlim(-10_200, 10_200); ax.set_ylim(-10_200, 10_200)
+            v, w = fields[name]
+            draw_network_map(ax, segs, v, w, YLORRD, norm, FULL_SUPPORT["delay"], lw=1.0)
+            cbd_ring(ax)
+            ax.set_title(label(name, a, b), fontsize=13, loc="left")
+        colourbar(fig, [0.35, 0.03, 0.3, 0.014 if grid == (2, 2) else 0.02], YLORRD, norm,
+                  "Average delay (min)", [1, 1.5, 2, 2.5, 3, 3.5], ["≤1", "1.5", "2", "2.5", "3", "3.5+"])
+        files.append(save(fig, out, fname))
+
+    # early / on time / late per period
+    rows = stats["weekday_by_period"]
+    names = [p[0] for p in PERIODS][::-1]
+    fig, ax = plt.subplots(figsize=(SLIDE[0], 4.2))
+    fig.subplots_adjust(left=0.12, right=0.98, top=0.86, bottom=0.08)
+    yy = np.arange(len(names))
+    e = np.array([rows[n]["early"] for n in names]); o = np.array([rows[n]["on_time"] for n in names])
+    l = np.array([rows[n]["late"] for n in names])
+    ax.barh(yy, e, color=EARLY_C, height=0.64, label="Early")
+    ax.barh(yy, o, left=e, color=ONTIME_C, height=0.64, label="On time")
+    ax.barh(yy, l, left=e + o, color=LATE_C, height=0.64, label="Late")
+    for yi in yy:
+        ax.text(e[yi] / 2, yi, f"{e[yi]:.0f}%", ha="center", va="center", fontsize=10.5, color="white")
+        ax.text(e[yi] + o[yi] / 2, yi, f"{o[yi]:.0f}% on time", ha="center", va="center", fontsize=10.5, color=INK)
+        ax.text(100 - l[yi] / 2, yi, f"{l[yi]:.0f}%", ha="center", va="center", fontsize=10.5, color="white")
+    ax.set_yticks(yy); ax.set_yticklabels(names, fontsize=11.5); ax.set_xlim(0, 100)
+    ax.set_xticks([]); ax.tick_params(length=0)
+    for sp in ("left", "bottom"):
+        ax.spines[sp].set_visible(False)
+    ax.legend(loc="lower left", bbox_to_anchor=(0, 1.0), ncol=3)
+    files.append(save(fig, out, "otr_by_period"))
+    return files
+
+
 def chart_collection(repo, out, stats):
     s = snapshots_per_day(repo)
     s = s[(s.index >= "2026-09-04") & (s.index < s.index.max())]   # drop today's partial day
@@ -747,6 +813,9 @@ def write_readme(out, stats, files):
              f"and {s['burden_concentration']['top5pct_cells_readings']}% of readings"]
     for name, p in s["by_period"].items():
         lines.append(f"- {name}: {p['on_time']}% on time, {p['early']}% early, {p['late']}% late")
+    for name, p in s["weekday_by_period"].items():
+        lines.append(f"- {name}, weekdays only: {p['on_time']}% on time, {p['early']}% early, {p['late']}% late, "
+                     f"mean lateness {p['mean_late_min']} min")
     if "operators_gap_points" in s:
         g = s["operators_gap_points"]
         lines.append(f"- Operators read {g[0]}–{g[1]} points below published OTR "
@@ -810,6 +879,7 @@ def main():
     files += chart_operators(d, out, stats, published, window_txt)
     files += chart_sw_link(repo, out, stats, datetime.strptime(a.sw_start, "%Y-%m-%d").date(),
                            datetime.strptime(a.sw_end, "%Y-%m-%d").date())
+    files += chart_periods(d, out, segs, stats, window_txt)
     files += chart_collection(repo, out, stats)
 
     for k in ("hotspots_average_delay", "hotspots_delay_burden"):
