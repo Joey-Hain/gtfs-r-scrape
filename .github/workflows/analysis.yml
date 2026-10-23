@@ -1,0 +1,45 @@
+name: Presentation charts
+
+# Rebuilds the CIVL3704 presentation charts (analysis/make_charts.py) from the
+# collected CSVs once a day and force-pushes them to the `analysis` branch,
+# where README.md shows them all. Never touches main or the collector.
+# Run it by hand from the Actions tab just before presenting for the latest
+# numbers; start/end override the default window (last 7 days).
+on:
+  schedule:
+    - cron: '13 18 * * *'     # 05:13 Sydney (AEDT)
+  workflow_dispatch:
+    inputs:
+      start:
+        description: 'First day YYYY-MM-DD (blank = 7 days before end)'
+        default: ''
+      end:
+        description: 'Last day YYYY-MM-DD (blank = newest data)'
+        default: ''
+
+concurrency:
+  group: analysis
+  cancel-in-progress: true
+
+jobs:
+  charts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y -qq fonts-inter > /dev/null || echo "::warning::Inter not installed; charts fall back to another font"
+          pip install -q pandas numpy scipy matplotlib
+      - name: Build and publish charts
+        env:
+          START: ${{ github.event.inputs.start }}
+          END: ${{ github.event.inputs.end }}
+        run: bash .github/scripts/publish-analysis.sh

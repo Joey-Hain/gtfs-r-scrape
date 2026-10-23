@@ -1,0 +1,14 @@
+{
+  "_comment": "TfNSW published on-time running by contract, from the 'Buses - On-time Running' dataset on the TfNSW Open Data Hub. Update published_period and the published_on_time values when a newer month comes out. agencies = GTFS agency IDs (the part of route_id before '_') belonging to each contract; Transit Systems is left unmatched because its two agency groups can't be tied to contracts unambiguously.",
+  "published_period": "Aug 2026",
+  "operators": {
+    "Transdev John Holland": {"agencies": ["2509"], "published_on_time": 96.4},
+    "Keolis Downer Northern Beaches": {"agencies": ["2508"], "published_on_time": 93.8},
+    "Busways North West": {"agencies": ["2507"], "published_on_time": 93.8},
+    "CDC NSW R14": {"agencies": ["2514"], "published_on_time": 94.8},
+    "CDC NSW R4": {"agencies": ["2504", "7057"], "published_on_time": 96.6},
+    "U-Go Mobility": {"agencies": ["2510", "7066", "7084"], "published_on_time": 94.9},
+    "Transit Systems": {"agencies": ["2459", "7016"], "published_on_time": null},
+    "Transit Systems NSW": {"agencies": ["2503", "7063", "7083"], "published_on_time": null}
+  }
+}

@@ -25,6 +25,12 @@ After every data push the Action runs `build_cells.py` and `.github/scripts/publ
 
 The dashboard downloads these instead of parsing the CSVs itself, because Render's free instance couldn't parse a week of 5-minute data within its 20-second limit. The binary format is documented at the top of `build_cells.py`. To build locally: `python build_cells.py --out cells-out`.
 
+## Presentation charts
+
+`analysis/make_charts.py` turns the collected data into slide-ready charts for the final presentation: maps of the bus network coloured by average delay, delay burden, not-on-time share and speed (same methodology as the dashboard's heatmaps), on-time running by hour and by operator, CBD against the rest of the network, mid-trip on-time running against TfNSW's published figures (`analysis/published_otr.json`, update when a new month is published), the Southwest Link layover artefact and collector snapshots per day. It also writes `stats.json` and `hotspots.csv` with every number quoted.
+
+`.github/workflows/analysis.yml` rebuilds them every morning and force-pushes the result to the [`analysis` branch](https://github.com/Joey-Hain/gtfs-r-scrape/tree/analysis), whose README shows every chart and the headline numbers. For the freshest set, run **Presentation charts** from the Actions tab; it takes about two minutes. Locally: `pip install pandas numpy scipy matplotlib`, then `python analysis/make_charts.py --out analysis-out` (add `--start`/`--end` for a fixed window).
+
 ## Data format
 
 One file per day, named `YYYY-MM-DD.csv` (Sydney time), one row per bus per snapshot:
