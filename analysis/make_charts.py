@@ -85,6 +85,7 @@ PURPLES = LinearSegmentedColormap.from_list("burden", ["#fde0c5", "#f59e72", "#e
 
 
 def setup_fonts():
+    plt.rcParams["font.family"] = "DejaVu Sans"     # matplotlib's own default font
     plt.rcParams.update({
         "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
         "text.color": INK, "axes.labelcolor": INK2, "xtick.color": INK2, "ytick.color": INK2,
