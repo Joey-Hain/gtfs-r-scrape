@@ -1,0 +1,529 @@
+{
+  "built_at": "2026-11-13 23:34 UTC",
+  "window": "2026-11-08 00:02 to 2026-11-14 10:02 (Sydney)",
+  "snapshots": 1702,
+  "network": {
+    "n": 623482,
+    "on_time": 69.7,
+    "early": 20.1,
+    "late": 10.3,
+    "mean_late_min": 2.09
+  },
+  "southwest_link_in_window": 0.0,
+  "published_period": "Aug 2026",
+  "cbd_vs_elsewhere": {
+    "CBD": {
+      "n": 118241,
+      "on_time": 73.0,
+      "early": 20.5,
+      "late": 6.5,
+      "mean_late_min": 1.48,
+      "speed_kmh": 11.4,
+      "share_readings": 19.0,
+      "share_burden": 13.4
+    },
+    "Elsewhere": {
+      "n": 505241,
+      "on_time": 68.9,
+      "early": 20.0,
+      "late": 11.2,
+      "mean_late_min": 2.24,
+      "speed_kmh": 19.8,
+      "share_readings": 81.0,
+      "share_burden": 86.6
+    }
+  },
+  "hotspots_average_delay": [
+    {
+      "n": 340,
+      "value": 4.639592732858722,
+      "mean": 4.662058823529412,
+      "sum": 1585.1,
+      "stationary_pct": 10.6,
+      "name": "Manly Rd at Heaton Ave",
+      "lat": -33.79903,
+      "lon": 151.25115
+    },
+    {
+      "n": 249,
+      "value": 4.546085875809027,
+      "mean": 4.575635876840696,
+      "sum": 1139.3333333333333,
+      "stationary_pct": 4.8,
+      "name": "Spit Rd at Stanton Rd",
+      "lat": -33.81973,
+      "lon": 151.24384
+    },
+    {
+      "n": 640,
+      "value": 4.264199544899753,
+      "mean": 4.274375,
+      "sum": 2735.6,
+      "stationary_pct": 31.2,
+      "name": "Sydney Rd at Condamine St",
+      "lat": -33.79431,
+      "lon": 151.2646
+    },
+    {
+      "n": 491,
+      "value": 4.135655143125253,
+      "mean": 4.148133061778683,
+      "sum": 2036.7333333333333,
+      "stationary_pct": 44.6,
+      "name": "Boundary St before Archer St",
+      "lat": -33.78691,
+      "lon": 151.18182
+    },
+    {
+      "n": 316,
+      "value": 3.972822280158437,
+      "mean": 3.990664556962025,
+      "sum": 1261.05,
+      "stationary_pct": 56.6,
+      "name": "Burns Bay Rd after Penrose St",
+      "lat": -33.81586,
+      "lon": 151.15195
+    },
+    {
+      "n": 245,
+      "value": 3.938495863053259,
+      "mean": 3.96108843537415,
+      "sum": 970.4666666666667,
+      "stationary_pct": 36.7,
+      "name": "Bellevue Rd at New South Head Rd",
+      "lat": -33.87687,
+      "lon": 151.24505
+    }
+  ],
+  "hotspots_delay_burden": [
+    {
+      "n": 4904,
+      "value": 8933.516666666666,
+      "mean": 1.8216795812941815,
+      "sum": 8933.516666666666,
+      "stationary_pct": 46.7,
+      "name": "Hyde Park",
+      "per_day_bus_min": 1392.0,
+      "lat": -33.87329,
+      "lon": 151.21013
+    },
+    {
+      "n": 2512,
+      "value": 8568.833333333334,
+      "mean": 3.4111597664543525,
+      "sum": 8568.833333333334,
+      "stationary_pct": 50.2,
+      "name": "Spit Junction",
+      "per_day_bus_min": 1335.0,
+      "lat": -33.82443,
+      "lon": 151.24101
+    },
+    {
+      "n": 7784,
+      "value": 7758.683333333333,
+      "mean": 0.9967476019184652,
+      "sum": 7758.683333333333,
+      "stationary_pct": 66.9,
+      "name": "Bondi Junction Station",
+      "per_day_bus_min": 1209.0,
+      "lat": -33.89131,
+      "lon": 151.24911
+    },
+    {
+      "n": 1840,
+      "value": 4966.616666666667,
+      "mean": 2.699248188405797,
+      "sum": 4966.616666666667,
+      "stationary_pct": 41.4,
+      "name": "Burwood Station",
+      "per_day_bus_min": 774.0,
+      "lat": -33.87697,
+      "lon": 151.10373
+    },
+    {
+      "n": 2235,
+      "value": 4838.416666666667,
+      "mean": 2.164839671886652,
+      "sum": 4838.416666666667,
+      "stationary_pct": 70.1,
+      "name": "Westfield Eastgardens",
+      "per_day_bus_min": 754.0,
+      "lat": -33.94502,
+      "lon": 151.2263
+    },
+    {
+      "n": 1619,
+      "value": 4675.733333333334,
+      "mean": 2.888037883467161,
+      "sum": 4675.733333333334,
+      "stationary_pct": 33.2,
+      "name": "Neutral Bay Junction",
+      "per_day_bus_min": 729.0,
+      "lat": -33.83155,
+      "lon": 151.22312
+    }
+  ],
+  "by_hour": {
+    "0": {
+      "n": 8407,
+      "early": 21.3,
+      "on_time": 72.7,
+      "late": 6.1
+    },
+    "1": {
+      "n": 3702,
+      "early": 18.2,
+      "on_time": 75.6,
+      "late": 6.2
+    },
+    "2": {
+      "n": 2585,
+      "early": 17.0,
+      "on_time": 77.7,
+      "late": 5.3
+    },
+    "3": {
+      "n": 2308,
+      "early": 21.4,
+      "on_time": 75.4,
+      "late": 3.2
+    },
+    "4": {
+      "n": 2927,
+      "early": 20.7,
+      "on_time": 78.3,
+      "late": 1.0
+    },
+    "5": {
+      "n": 9454,
+      "early": 17.3,
+      "on_time": 81.0,
+      "late": 1.7
+    },
+    "6": {
+      "n": 19950,
+      "early": 19.2,
+      "on_time": 77.4,
+      "late": 3.4
+    },
+    "7": {
+      "n": 40426,
+      "early": 26.0,
+      "on_time": 68.2,
+      "late": 5.8
+    },
+    "8": {
+      "n": 51770,
+      "early": 25.8,
+      "on_time": 65.4,
+      "late": 8.8
+    },
+    "9": {
+      "n": 38606,
+      "early": 22.4,
+      "on_time": 68.9,
+      "late": 8.7
+    },
+    "10": {
+      "n": 27301,
+      "early": 21.7,
+      "on_time": 70.3,
+      "late": 8.0
+    },
+    "11": {
+      "n": 25882,
+      "early": 20.2,
+      "on_time": 71.9,
+      "late": 7.9
+    },
+    "12": {
+      "n": 30638,
+      "early": 17.4,
+      "on_time": 70.3,
+      "late": 12.3
+    },
+    "13": {
+      "n": 30315,
+      "early": 19.1,
+      "on_time": 70.3,
+      "late": 10.6
+    },
+    "14": {
+      "n": 32445,
+      "early": 18.5,
+      "on_time": 71.1,
+      "late": 10.4
+    },
+    "15": {
+      "n": 50881,
+      "early": 19.0,
+      "on_time": 66.2,
+      "late": 14.8
+    },
+    "16": {
+      "n": 54110,
+      "early": 20.3,
+      "on_time": 65.8,
+      "late": 13.9
+    },
+    "17": {
+      "n": 52815,
+      "early": 20.4,
+      "on_time": 65.9,
+      "late": 13.7
+    },
+    "18": {
+      "n": 45640,
+      "early": 20.1,
+      "on_time": 66.5,
+      "late": 13.4
+    },
+    "19": {
+      "n": 27361,
+      "early": 17.9,
+      "on_time": 73.6,
+      "late": 8.5
+    },
+    "20": {
+      "n": 22063,
+      "early": 14.6,
+      "on_time": 76.9,
+      "late": 8.5
+    },
+    "21": {
+      "n": 17353,
+      "early": 13.3,
+      "on_time": 76.7,
+      "late": 10.0
+    },
+    "22": {
+      "n": 14738,
+      "early": 12.5,
+      "on_time": 74.4,
+      "late": 13.1
+    },
+    "23": {
+      "n": 11805,
+      "early": 16.9,
+      "on_time": 73.1,
+      "late": 10.0
+    }
+  },
+  "by_period": {
+    "AM peak": {
+      "n": 150752,
+      "on_time": 68.6,
+      "early": 24.1,
+      "late": 7.3,
+      "mean_late_min": 1.64
+    },
+    "Midday": {
+      "n": 146581,
+      "on_time": 70.8,
+      "early": 19.3,
+      "late": 9.9,
+      "mean_late_min": 2.08
+    },
+    "PM peak": {
+      "n": 203446,
+      "on_time": 66.1,
+      "early": 19.9,
+      "late": 14.0,
+      "mean_late_min": 2.54
+    },
+    "Evening": {
+      "n": 122703,
+      "on_time": 75.5,
+      "early": 16.2,
+      "late": 8.3,
+      "mean_late_min": 1.92
+    }
+  },
+  "burden_concentration": {
+    "top5pct_cells_burden": 40.3,
+    "top5pct_cells_readings": 41.6,
+    "cells_200m": 4101
+  },
+  "operators": [
+    {
+      "operator": "Transit Systems",
+      "n": 203952,
+      "on_time": 68.1,
+      "early": 24.6,
+      "late": 7.3,
+      "mean_late_min": 1.66,
+      "published": NaN
+    },
+    {
+      "operator": "CDC NSW R14",
+      "n": 12988,
+      "on_time": 69.4,
+      "early": 19.5,
+      "late": 11.1,
+      "mean_late_min": 2.21,
+      "published": 94.8
+    },
+    {
+      "operator": "CDC NSW R4",
+      "n": 16326,
+      "on_time": 69.8,
+      "early": 23.7,
+      "late": 6.5,
+      "mean_late_min": 1.44,
+      "published": 96.6
+    },
+    {
+      "operator": "Transdev John Holland",
+      "n": 225563,
+      "on_time": 69.9,
+      "early": 18.7,
+      "late": 11.4,
+      "mean_late_min": 2.28,
+      "published": 96.4
+    },
+    {
+      "operator": "Busways North West",
+      "n": 84699,
+      "on_time": 70.6,
+      "early": 18.6,
+      "late": 10.8,
+      "mean_late_min": 2.14,
+      "published": 93.8
+    },
+    {
+      "operator": "Keolis Downer Northern Beaches",
+      "n": 75194,
+      "on_time": 71.7,
+      "early": 13.5,
+      "late": 14.8,
+      "mean_late_min": 2.74,
+      "published": 93.8
+    },
+    {
+      "operator": "U-Go Mobility",
+      "n": 1648,
+      "on_time": 78.6,
+      "early": 17.9,
+      "late": 3.5,
+      "mean_late_min": 1.3,
+      "published": 94.9
+    },
+    {
+      "operator": "Transit Systems NSW",
+      "n": 1307,
+      "on_time": 80.2,
+      "early": 9.9,
+      "late": 9.9,
+      "mean_late_min": 2.1,
+      "published": NaN
+    }
+  ],
+  "operators_spearman_rho": -0.35,
+  "operators_gap_points": [
+    16.3,
+    26.8
+  ],
+  "southwest_link": {
+    "window": "11/10\u201316/10",
+    "share_readings": 3.1,
+    "share_lateness": 10.8,
+    "share_at_sydenham": 28.5,
+    "stationary_at_sydenham": 78.1,
+    "mean_late_at_sydenham": 13.9,
+    "on_time_away": 55.8,
+    "mean_late_away": 4.31,
+    "mean_late_rest_of_network": 1.88
+  },
+  "weekday_by_period": {
+    "AM peak": {
+      "n": 129146,
+      "on_time": 67.4,
+      "early": 25.1,
+      "late": 7.5,
+      "mean_late_min": 1.65
+    },
+    "Midday": {
+      "n": 120471,
+      "on_time": 71.0,
+      "early": 19.4,
+      "late": 9.6,
+      "mean_late_min": 2.04
+    },
+    "PM peak": {
+      "n": 183999,
+      "on_time": 65.9,
+      "early": 19.7,
+      "late": 14.5,
+      "mean_late_min": 2.61
+    },
+    "Evening": {
+      "n": 103141,
+      "on_time": 75.3,
+      "early": 16.0,
+      "late": 8.8,
+      "mean_late_min": 1.97
+    }
+  },
+  "snapshots_per_day": {
+    "2026-09-15": 6,
+    "2026-09-16": 6,
+    "2026-09-17": 7,
+    "2026-09-18": 8,
+    "2026-09-19": 7,
+    "2026-09-20": 8,
+    "2026-09-21": 7,
+    "2026-09-22": 5,
+    "2026-09-23": 6,
+    "2026-09-24": 6,
+    "2026-09-25": 6,
+    "2026-09-26": 6,
+    "2026-09-27": 6,
+    "2026-09-28": 6,
+    "2026-09-29": 4,
+    "2026-09-30": 5,
+    "2026-10-01": 5,
+    "2026-10-02": 4,
+    "2026-10-03": 6,
+    "2026-10-04": 5,
+    "2026-10-05": 6,
+    "2026-10-06": 3,
+    "2026-10-07": 5,
+    "2026-10-08": 4,
+    "2026-10-09": 29,
+    "2026-10-10": 66,
+    "2026-10-11": 127,
+    "2026-10-12": 288,
+    "2026-10-13": 288,
+    "2026-10-14": 288,
+    "2026-10-15": 288,
+    "2026-10-16": 288,
+    "2026-10-17": 288,
+    "2026-10-18": 288,
+    "2026-10-19": 288,
+    "2026-10-20": 287,
+    "2026-10-21": 288,
+    "2026-10-22": 288,
+    "2026-10-23": 288,
+    "2026-10-24": 288,
+    "2026-10-25": 288,
+    "2026-10-26": 286,
+    "2026-10-27": 288,
+    "2026-10-28": 278,
+    "2026-10-29": 288,
+    "2026-10-30": 288,
+    "2026-10-31": 288,
+    "2026-11-01": 288,
+    "2026-11-02": 288,
+    "2026-11-03": 288,
+    "2026-11-04": 288,
+    "2026-11-05": 288,
+    "2026-11-06": 288,
+    "2026-11-07": 288,
+    "2026-11-08": 246,
+    "2026-11-09": 288,
+    "2026-11-10": 278,
+    "2026-11-11": 269,
+    "2026-11-12": 223,
+    "2026-11-13": 282
+  }
+}
